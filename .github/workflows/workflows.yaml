@@ -48,7 +48,6 @@ jobs:
     steps:
       - name: Check out source code
         uses: actions/checkout@v2
-
       - name: Install Go
         uses: actions/setup-go@v1
         with:
@@ -59,9 +58,10 @@ jobs:
           aws-region: ${{secrets.AWS_REGION}}
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-duration-seconds: 1200
       - name: deploy
         run: |
-          zip -j deploy.zip ./*
+          zip -j deploy.zip ./dist/*
           aws lambda update-function-code --function-name=Test-CICD-Lambda --zip-file=fileb://deploy.zip
 
   # End
