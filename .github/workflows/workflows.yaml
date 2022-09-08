@@ -1,0 +1,73 @@
+# ************** Workflow description **************
+# Trigger:
+#   - push
+# Jobs:
+#   - Run CI (lint -> test)
+# **************************************************
+
+name: CI-CD-Workflows
+
+on:
+  push:
+
+jobs:
+  # **************************************************
+  # -------------------- Run CI----------------------*
+  # **************************************************
+  run-ci:
+    # Run on github Ubuntu Linux VM
+    runs-on: ubuntu-latest
+
+    steps:
+      # Check out source code
+      - name: Check out source code
+        uses: actions/checkout@v3
+      # Setup Golang-lint and run Golang-lint
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v3
+        with:
+          # Required: the version of golangci-lint is required and must be specified without patch version: we always use the latest patch version.
+          version: v1.44
+      # Run UT test
+      - name: Run unit test scripts
+        # Recursive run all *_test.go file
+        run: go test -v ./...
+  # **************************************************
+  # -------------------- Run CD----------------------*
+  # **************************************************
+  run-cd:
+    # Depend on CI job
+    needs: run-ci
+    # Only run this job when trigger came from main
+    if: contains('refs/heads/main;', github.ref)
+
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out source code
+        uses: actions/checkout@v2
+      - name: Install Go
+        uses: actions/setup-go@v1
+        with:
+          go-version: ${{ matrix.go-version }}
+       - name: Build binary
+        run: |
+          cd example && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -v -a -o main main.go && zip deployment.zip main
+      - name: Configure AWS Credentials for main
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-region: ${{secrets.AWS_REGION}}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      - name: npm install
+        env:
+         CI: true
+        run: |
+          npm ci
+      - name: deploy
+        run: |
+          zip -j deploy.zip ./*
+          aws lambda update-function-code --function-name=test --zip-file=fileb://deploy.zip
+
+  # End
