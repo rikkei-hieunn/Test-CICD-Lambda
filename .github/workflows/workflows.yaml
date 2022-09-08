@@ -61,7 +61,6 @@ jobs:
           role-duration-seconds: 1200
       - name: create zip
         run: |
-          cd Test-CICD-Lambda
           zip -r deploy.zip ./*
       - name: deploy
         run: |
